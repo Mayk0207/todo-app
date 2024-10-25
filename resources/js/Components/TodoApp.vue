@@ -1,59 +1,166 @@
 <template>
     <div class="max-w-2xl mx-auto">
-      <h1 class="text-2xl font-bold my-4">Todo List</h1>
-      <div class="flex gap-2 my-2">
-        <input v-model="newTodo" class="border p-2 w-full" placeholder="Add new todo" @keyup.enter="addTodo">
-        <button class="bg-blue-500 text-white p-2" @click="addTodo">Add</button>
-      </div>
-      <ul>
-        <li v-for="todo in todos" :key="todo.id" class="flex items-center gap-2">
-          <input type="checkbox" v-model="todo.completed" @change="updateTodo(todo)">
-          <span :class="{ 'line-through': todo.completed }">{{ todo.title }}</span>
-          <button class="ml-auto bg-red-500 text-white p-1" @click="deleteTodo(todo.id)">Delete</button>
-        </li>
-      </ul>
+        <h1 class="text-2xl font-bold my-4">Todo List</h1>
+
+        <input v-model="searchQuery" class="border p-2 w-full my-4" placeholder="Search todos">
+
+        <div class="flex gap-2 my-2">
+            <input v-model="newTodo" class="border p-2 w-full" placeholder="Add new todo" @keyup.enter="addTodo">
+            <select v-model="selectedGroup" class="border p-2">
+                <option disabled value="">Select ...</option>
+                <option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option>
+            </select>
+            <button class="bg-blue-500 text-white p-2" @click="addTodo">Add</button>
+        </div>
+
+        <div v-if="isEditing" class="my-4 border p-4 rounded">
+            <h2 class="text-lg font-semibold">Edit Todo</h2>
+            <input v-model="editedTodo.title" class="border p-2 w-full my-2" placeholder="Edit todo">
+            <select v-model="editedTodo.group_id" class="border p-2 w-full my-2">
+                <option disabled value="">Select group...</option>
+                <option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option>
+            </select>
+            <button class="bg-green-500 text-white p-2" @click="updateTodo">Update</button>
+            <button class="bg-gray-500 text-white p-2" @click="cancelEdit">Cancel</button>
+        </div>
+
+        <ul>
+            <li v-for="todo in filteredTodos" :key="todo.id" class="flex items-center gap-2">
+                <input type="checkbox" v-model="todo.completed" @change="updateTodoStatus(todo)">
+                <span :class="{ 'line-through': todo.completed }">{{ todo.title }}</span>
+                <span class="ml-2 text-gray-500">({{ todo.groupName }})</span>
+                <button class="ml-auto bg-yellow-500 text-white p-1" @click="editTodo(todo)">Edit</button>
+                <button class="ml-1 bg-red-500 text-white p-1" @click="deleteTodo(todo.id)">Delete</button>
+            </li>
+        </ul>
     </div>
-  </template>
-  
-  <script>
-  import axios from 'axios';
-  
-  export default {
+</template>
+
+<script>
+import axios from 'axios';
+
+export default {
     data() {
-      return {
-        todos: [],
-        newTodo: ''
-      };
+        return {
+            todos: [],
+            newTodo: '',
+            selectedGroup: null,
+            groups: [],
+            searchQuery: '',
+            isEditing: false,
+            editedTodo: {
+                id: null,
+                title: '',
+                group_id: null
+            }
+        };
+    },
+    computed: {
+        filteredTodos() {
+            return this.todos.filter(todo => 
+                todo.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+            );
+        }
     },
     methods: {
-      async fetchTodos() {
-        const response = await axios.get('/api/todos');
-        this.todos = response.data;
-      },
-      async addTodo() {
-        if (this.newTodo === '') return;
-  
-        const response = await axios.post('/api/todos', { title: this.newTodo });
-        this.todos.push(response.data);
-        this.newTodo = '';
-      },
-      async updateTodo(todo) {
-        await axios.put(`/api/todos/${todo.id}`, todo);
-      },
-      async deleteTodo(id) {
-        await axios.delete(`/api/todos/${id}`);
-        this.todos = this.todos.filter(todo => todo.id !== id);
-      }
+        async fetchTodos() {
+            const response = await axios.get('/api/todos', {
+                params: {
+                    group_id: this.selectedGroup  
+                }
+            });
+
+            this.todos = response.data.map(todo => ({
+                ...todo,
+                groupName: this.groups.find(group => group.id === todo.group_id)?.name 
+            }));
+        },
+        async fetchGroups() {
+            const response = await axios.get('/api/groups');
+            this.groups = response.data;
+            console.log('Fetched Groups:', this.groups);
+        },
+        async addTodo() {
+            if (this.newTodo === '' || !this.selectedGroup) {
+                console.log('Either newTodo or selectedGroup is missing');
+                return;
+            }
+
+            try {
+                console.log('Adding Todo with Group ID:', this.selectedGroup);
+                const response = await axios.post('/api/todos', { 
+                    title: this.newTodo, 
+                    group_id: this.selectedGroup 
+                });
+
+                const newTodo = {
+                    ...response.data,
+                    groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
+                };
+
+                this.todos.push(newTodo);
+                this.newTodo = '';
+                this.selectedGroup = null;
+            } catch (error) {
+                console.error('Error adding todo:', error.response ? error.response.data : error.message);
+            }
+        },
+        editTodo(todo) {
+            this.editedTodo = { id: todo.id, title: todo.title, group_id: todo.group_id };
+            this.isEditing = true;
+            this.selectedGroup = todo.group_id; 
+        },
+        async updateTodo() {
+            if (this.editedTodo.title === '' || !this.editedTodo.group_id) {
+                console.log('Either title or group_id is missing for update');
+                return;
+            }
+
+            try {
+                await axios.put(`/api/todos/${this.editedTodo.id}`, {
+                    title: this.editedTodo.title,
+                    group_id: this.editedTodo.group_id
+                });
+
+                const index = this.todos.findIndex(todo => todo.id === this.editedTodo.id);
+                if (index !== -1) {
+                    this.todos[index].title = this.editedTodo.title;
+                    this.todos[index].group_id = this.editedTodo.group_id;
+                    this.todos[index].groupName = this.groups.find(group => group.id === this.editedTodo.group_id)?.name;
+                }
+
+                this.cancelEdit();
+            } catch (error) {
+                console.error('Error updating todo:', error.response ? error.response.data : error.message);
+            }
+        },
+        cancelEdit() {
+            this.isEditing = false;
+            this.editedTodo = { id: null, title: '', group_id: null };
+            this.selectedGroup = null; 
+        },
+        async deleteTodo(id) {
+            await axios.delete(`/api/todos/${id}`);
+            this.todos = this.todos.filter(todo => todo.id !== id);
+        },
+        async updateTodoStatus(todo) {
+            try {
+                await axios.patch(`/api/todos/${todo.id}`, { completed: todo.completed });
+            } catch (error) {
+                console.error('Error updating todo status:', error.response ? error.response.data : error.message);
+            }
+        }
     },
     mounted() {
-      this.fetchTodos();
+        this.fetchGroups().then(() => {
+            this.fetchTodos();
+        });
     }
-  };
-  </script>
-  
-  <style scoped>
-  .line-through {
+};
+</script>
+
+<style scoped>
+.line-through {
     text-decoration: line-through;
-  }
-  </style>
-  
+}
+</style>

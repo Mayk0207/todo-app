@@ -5,14 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Todo extends Model
+class Group extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['title', 'completed'];
+    protected $fillable = ['name'];
 
-    public function group()
-{
-    return $this->belongsTo(Group::class);
-}
+    public function todos()
+    {
+        return $this->hasMany(Todo::class);
+    }
 }
