@@ -95,6 +95,16 @@ export default {
                 return;
             }
 
+            const duplicateTodo = this.todos.find(todo => 
+                todo.title.toLowerCase() === this.newTodo.toLowerCase() && 
+                todo.group_id === this.selectedGroup
+            );
+
+            if (duplicateTodo) {
+                this.errorMessage = 'This todo with the same title and category already exists. Duplicate todos are not allowed.';
+                return;
+            }
+
             try {
                 this.errorMessage = '';
                 const response = await axios.post('/api/todos', { 
