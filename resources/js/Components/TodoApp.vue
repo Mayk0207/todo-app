@@ -90,22 +90,18 @@ export default {
             this.groups = response.data;
         },
         async addTodo() {
-    // Validate input
     if (this.newTodo === '' || !this.selectedGroup) {
         this.errorMessage = 'Title and Category are required to add a todo.';
         return;
     }
 
-    // Trim the newTodo title to remove leading and trailing spaces
-    const trimmedTitle = this.newTodo.trim().toLowerCase(); // Normalize the title by trimming spaces and converting to lower case
+    const trimmedTitle = this.newTodo.trim().toLowerCase(); 
 
-    // Check for duplicate todo title and group combination
     const duplicateTodo = this.todos.find(todo => 
-        todo.title.trim().toLowerCase() === trimmedTitle && // Trimmed and lowercase title comparison
-        todo.group_id === this.selectedGroup // Ensure group_id matches
+        todo.title.trim().toLowerCase() === trimmedTitle && 
+        todo.group_id === this.selectedGroup 
     );
 
-    // Log the check for debugging
     console.log('Checking for duplicates...');
     console.log('New Todo Title:', trimmedTitle);
     console.log('Selected Group:', this.selectedGroup);
@@ -114,16 +110,14 @@ export default {
     if (duplicateTodo) {
         this.errorMessage = 'This todo with the same title and category already exists. Duplicate todos are not allowed.';
         console.log('Duplicate found:', duplicateTodo);
-        return; // Prevents adding the duplicate todo
+        return; 
     }
 
-    // Proceed to add the new todo
     try {
-        // Clear the error message before trying to add a new todo
         this.errorMessage = '';
 
         const response = await axios.post('/api/todos', { 
-            title: trimmedTitle, // Use trimmed title when adding
+            title: trimmedTitle, 
             group_id: this.selectedGroup 
         });
 
@@ -132,10 +126,9 @@ export default {
             groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
         };
 
-        // Add the new todo to the list
         this.todos.push(newTodo); 
-        this.newTodo = ''; // Clear the input field
-        this.selectedGroup = null; // Reset selected group
+        this.newTodo = ''; 
+        this.selectedGroup = null; 
     } catch (error) {
         console.error('Error adding todo:', error.response ? error.response.data : error.message);
     }
