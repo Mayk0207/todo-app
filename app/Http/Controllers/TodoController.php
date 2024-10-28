@@ -25,6 +25,16 @@ class TodoController extends Controller
             'group_id' => 'required|exists:groups,id',
         ]);
     
+        $existingTodo = Todo::where('title', $request->input('title'))
+        ->where('group_id', $request->input('group_id'))
+        ->first();
+
+        if ($existingTodo) {
+        return response()->json([
+                'message' => 'A todo with the same title and category already exists.'
+         ], 422);
+        }
+
         $todo = new Todo();
         $todo->title = $request->input('title');
         $todo->group_id = $request->input('group_id');
@@ -40,10 +50,26 @@ class TodoController extends Controller
             'group_id' => 'sometimes|required|exists:groups,id', 
         ]);
     
+        if ($request->has('title') && $request->has('group_id')) {
+            $existingTodo = Todo::where('title', $request->input('title'))
+                                ->where('group_id', $request->input('group_id'))
+                                ->where('id', '!=', $todo->id)
+                                ->first();
+    
+            if ($existingTodo) {
+                return response()->json([
+                    'message' => 'A todo with the same title and group already exists.'
+                ], 422);
+            }
+        }
+    
+        Log::info("Updating Todo", ['id' => $todo->id, 'new_group_id' => $request->input('group_id')]);
+    
         $todo->update($request->only('title', 'completed', 'group_id'));
     
         return response()->json($todo);
     }
+    
     
 
     public function destroy(Todo $todo)
