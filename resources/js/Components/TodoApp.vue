@@ -25,7 +25,7 @@
             <h2 class="text-lg font-semibold">Edit Todo</h2>
             <input v-model="editedTodo.title" class="border p-2 w-full my-2" placeholder="Edit todo">
             <select v-model="editedTodo.group_id" class="border p-2 w-full my-2">
-                <option disabled value="">Select group...</option>
+                <option disabled value="">Select...</option>
                 <option v-for="group in groups" :key="group.id" :value="group.id">{{ group.name }}</option>
             </select>
             <button class="bg-green-500 text-white p-2 mr-1 font-bold py-2 px-4 border border-blue-700 rounded" @click="updateTodo">Update</button>
@@ -90,80 +90,76 @@ export default {
             this.groups = response.data;
         },
         async addTodo() {
-    if (this.newTodo === '' || !this.selectedGroup) {
-        this.errorMessage = 'Title and Category are required to add a todo.';
-        return;
-    }
+            if (this.newTodo === '' || !this.selectedGroup) {
+                this.errorMessage = 'Title and Category are required to add a todo.';
+                return;
+            }
 
-    const trimmedTitle = this.newTodo.trim().toLowerCase(); 
+            try {
+                this.errorMessage = '';
+                const response = await axios.post('/api/todos', { 
+                    title: this.newTodo, 
+                    group_id: this.selectedGroup 
+                });
 
-    const duplicateTodo = this.todos.find(todo => 
-        todo.title.trim().toLowerCase() === trimmedTitle && 
-        todo.group_id === this.selectedGroup 
-    );
+                const newTodo = {
+                    ...response.data,
+                    groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
+                };
 
-    console.log('Checking for duplicates...');
-    console.log('New Todo Title:', trimmedTitle);
-    console.log('Selected Group:', this.selectedGroup);
-    console.log('Existing Todos:', this.todos.map(todo => ({ title: todo.title.trim(), group_id: todo.group_id })));
-
-    if (duplicateTodo) {
-        this.errorMessage = 'This todo with the same title and category already exists. Duplicate todos are not allowed.';
-        console.log('Duplicate found:', duplicateTodo);
-        return; 
-    }
-
-    try {
-        this.errorMessage = '';
-
-        const response = await axios.post('/api/todos', { 
-            title: trimmedTitle, 
-            group_id: this.selectedGroup 
-        });
-
-        const newTodo = {
-            ...response.data,
-            groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
-        };
-
-        this.todos.push(newTodo); 
-        this.newTodo = ''; 
-        this.selectedGroup = null; 
-    } catch (error) {
-        console.error('Error adding todo:', error.response ? error.response.data : error.message);
-    }
-},
-
+                this.todos.push(newTodo);
+                this.newTodo = '';
+                this.selectedGroup = null;
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.errorMessage = error.response.data.message;
+                } else {
+                    console.error('Error adding todo:', error.message);
+                }
+            }
+        },
         editTodo(todo) {
             this.editedTodo = { id: todo.id, title: todo.title, group_id: todo.group_id };
             this.isEditing = true;
             this.selectedGroup = todo.group_id; 
         },
         async updateTodo() {
-            if (this.editedTodo.title === '' || !this.editedTodo.group_id) {
-                this.editErrorMessage = 'Title and Group are required to update the todo.';
-                return;
-            }
+    if (this.editedTodo.title === '' || !this.editedTodo.group_id) {
+        this.editErrorMessage = 'Title and Group are required to update the todo.';
+        return;
+    }
 
-            try {
-                this.editErrorMessage = '';
-                await axios.put(`/api/todos/${this.editedTodo.id}`, {
-                    title: this.editedTodo.title,
-                    group_id: this.editedTodo.group_id
-                });
+    try {
+        this.editErrorMessage = '';
+        console.log("Updating Todo:", this.editedTodo); 
 
-                const index = this.todos.findIndex(todo => todo.id === this.editedTodo.id);
-                if (index !== -1) {
-                    this.todos[index].title = this.editedTodo.title;
-                    this.todos[index].group_id = this.editedTodo.group_id;
-                    this.todos[index].groupName = this.groups.find(group => group.id === this.editedTodo.group_id)?.name;
-                }
+        const response = await axios.put(`/api/todos/${this.editedTodo.id}`, {
+            title: this.editedTodo.title,
+            group_id: this.editedTodo.group_id
+        });
 
-                this.cancelEdit();
-            } catch (error) {
-                console.error('Error updating todo:', error.response ? error.response.data : error.message);
-            }
-        },
+        await this.fetchTodos(); 
+
+        const index = this.todos.findIndex(todo => todo.id === this.editedTodo.id);
+        if (index !== -1) {
+            this.todos[index] = {
+                ...this.todos[index],
+                ...response.data,
+                groupName: this.groups.find(group => group.id === this.editedTodo.group_id)?.name,
+            };
+        }
+
+        this.cancelEdit();
+
+    } catch (error) {
+        if (error.response && error.response.status === 422) {
+            this.editErrorMessage = error.response.data.message; 
+        } else {
+            console.error('Error updating todo:', error.message);
+        }
+    }
+},
+
         cancelEdit() {
             this.isEditing = false;
             this.editedTodo = { id: null, title: '', group_id: null };
