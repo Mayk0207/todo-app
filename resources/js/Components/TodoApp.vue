@@ -19,6 +19,8 @@
             <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 border border-blue-700 rounded" @click="addTodo">Add</button>
         </div>
 
+        <p v-if="errorMessage" class="text-red-500">{{ errorMessage }}</p>
+
         <div v-if="isEditing" class="my-4 border p-4 rounded">
             <h2 class="text-lg font-semibold">Edit Todo</h2>
             <input v-model="editedTodo.title" class="border p-2 w-full my-2" placeholder="Edit todo">
@@ -29,6 +31,8 @@
             <button class="bg-green-500 text-white p-2 mr-1 font-bold py-2 px-4 border border-blue-700 rounded" @click="updateTodo">Update</button>
             <button class="bg-gray-500 text-white p-2 font-bold py-2 px-4 border border-blue-700 rounded" @click="cancelEdit">Cancel</button>
         </div>
+
+        <p v-if="editErrorMessage" class="text-red-500">{{ editErrorMessage }}</p>
 
         <ul>
             <li v-for="todo in filteredTodos" :key="todo.id" class="flex items-center gap-2">
@@ -55,6 +59,8 @@ export default {
             groups: [],
             searchQuery: '',
             isEditing: false,
+            errorMessage: '',     
+            editErrorMessage: '', 
             editedTodo: {
                 id: null,
                 title: '',
@@ -82,16 +88,15 @@ export default {
         async fetchGroups() {
             const response = await axios.get('/api/groups');
             this.groups = response.data;
-            console.log('Fetched Groups:', this.groups);
         },
         async addTodo() {
             if (this.newTodo === '' || !this.selectedGroup) {
-                console.log('Either newTodo or selectedGroup is missing');
+                this.errorMessage = 'Title and Category are required to add a todo.';
                 return;
             }
 
             try {
-                console.log('Adding Todo with Group ID:', this.selectedGroup);
+                this.errorMessage = '';
                 const response = await axios.post('/api/todos', { 
                     title: this.newTodo, 
                     group_id: this.selectedGroup 
@@ -116,11 +121,12 @@ export default {
         },
         async updateTodo() {
             if (this.editedTodo.title === '' || !this.editedTodo.group_id) {
-                console.log('Either title or group_id is missing for update');
+                this.editErrorMessage = 'Title and Group are required to update the todo.';
                 return;
             }
 
             try {
+                this.editErrorMessage = '';
                 await axios.put(`/api/todos/${this.editedTodo.id}`, {
                     title: this.editedTodo.title,
                     group_id: this.editedTodo.group_id
@@ -141,7 +147,7 @@ export default {
         cancelEdit() {
             this.isEditing = false;
             this.editedTodo = { id: null, title: '', group_id: null };
-            this.selectedGroup = null; 
+            this.selectedGroup = null;
         },
         async deleteTodo(id) {
             await axios.delete(`/api/todos/${id}`);
