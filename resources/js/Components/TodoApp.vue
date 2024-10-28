@@ -90,40 +90,57 @@ export default {
             this.groups = response.data;
         },
         async addTodo() {
-            if (this.newTodo === '' || !this.selectedGroup) {
-                this.errorMessage = 'Title and Category are required to add a todo.';
-                return;
-            }
+    // Validate input
+    if (this.newTodo === '' || !this.selectedGroup) {
+        this.errorMessage = 'Title and Category are required to add a todo.';
+        return;
+    }
 
-            const duplicateTodo = this.todos.find(todo => 
-                todo.title.toLowerCase() === this.newTodo.toLowerCase() && 
-                todo.group_id === this.selectedGroup
-            );
+    // Trim the newTodo title to remove leading and trailing spaces
+    const trimmedTitle = this.newTodo.trim().toLowerCase(); // Normalize the title by trimming spaces and converting to lower case
 
-            if (duplicateTodo) {
-                this.errorMessage = 'This todo with the same title and category already exists. Duplicate todos are not allowed.';
-                return;
-            }
+    // Check for duplicate todo title and group combination
+    const duplicateTodo = this.todos.find(todo => 
+        todo.title.trim().toLowerCase() === trimmedTitle && // Trimmed and lowercase title comparison
+        todo.group_id === this.selectedGroup // Ensure group_id matches
+    );
 
-            try {
-                this.errorMessage = '';
-                const response = await axios.post('/api/todos', { 
-                    title: this.newTodo, 
-                    group_id: this.selectedGroup 
-                });
+    // Log the check for debugging
+    console.log('Checking for duplicates...');
+    console.log('New Todo Title:', trimmedTitle);
+    console.log('Selected Group:', this.selectedGroup);
+    console.log('Existing Todos:', this.todos.map(todo => ({ title: todo.title.trim(), group_id: todo.group_id })));
 
-                const newTodo = {
-                    ...response.data,
-                    groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
-                };
+    if (duplicateTodo) {
+        this.errorMessage = 'This todo with the same title and category already exists. Duplicate todos are not allowed.';
+        console.log('Duplicate found:', duplicateTodo);
+        return; // Prevents adding the duplicate todo
+    }
 
-                this.todos.push(newTodo);
-                this.newTodo = '';
-                this.selectedGroup = null;
-            } catch (error) {
-                console.error('Error adding todo:', error.response ? error.response.data : error.message);
-            }
-        },
+    // Proceed to add the new todo
+    try {
+        // Clear the error message before trying to add a new todo
+        this.errorMessage = '';
+
+        const response = await axios.post('/api/todos', { 
+            title: trimmedTitle, // Use trimmed title when adding
+            group_id: this.selectedGroup 
+        });
+
+        const newTodo = {
+            ...response.data,
+            groupName: this.groups.find(group => group.id === this.selectedGroup)?.name
+        };
+
+        // Add the new todo to the list
+        this.todos.push(newTodo); 
+        this.newTodo = ''; // Clear the input field
+        this.selectedGroup = null; // Reset selected group
+    } catch (error) {
+        console.error('Error adding todo:', error.response ? error.response.data : error.message);
+    }
+},
+
         editTodo(todo) {
             this.editedTodo = { id: todo.id, title: todo.title, group_id: todo.group_id };
             this.isEditing = true;
