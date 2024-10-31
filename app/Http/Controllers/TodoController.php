@@ -19,29 +19,35 @@ class TodoController extends Controller
         return $query->get();
     }
 
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
         $request->validate([
             'title' => 'required|string|max:255',
             'group_id' => 'required|exists:groups,id',
-        ]);
-    
-        $existingTodo = Todo::where('title', $request->input('title'))
-        ->where('group_id', $request->input('group_id'))
-        ->first();
+            'title' => [
+                'required',
+                'string',
+                'max:255',
+                function ($attribute, $value, $fail) use ($request) {
+                    $existingTodo = Todo::where('title', $value)
+                        ->where('group_id', $request->input('group_id'))
+                        ->first();
 
-        if ($existingTodo) {
-        return response()->json([
-                'message' => 'A todo with the same title and category already exists.'
-         ], 422);
-        }
+                    if ($existingTodo) {
+                        $fail('A todo with the same title and category already exists.');
+                    }
+                },
+            ],
+        ]);
 
         $todo = new Todo();
         $todo->title = $request->input('title');
         $todo->group_id = $request->input('group_id');
         $todo->save();
-    
+
         return response()->json($todo, 201);
     }
+    
     public function update(Request $request, Todo $todo)
     {
         $request->validate([
@@ -69,7 +75,6 @@ class TodoController extends Controller
     
         return response()->json($todo);
     }
-    
     
 
     public function destroy(Todo $todo)
